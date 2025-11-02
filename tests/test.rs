@@ -18,6 +18,16 @@ fn test_question_mark_wildcard() {
     assert_glob_match("*.jsx?", "component.jsx", true);
 }
 
+#[test]
+fn test_double_star_wildcard() {
+    // Test ** pattern - matches any character including slash (/)
+    assert_glob_match("**", "all/the/files.md", true);
+    assert_glob_match("**", "README.md", true);
+    assert_glob_match("**", "docs/nested/deeply/file.txt", true);
+    assert_glob_match("**", "single-file.js", true);
+    assert_glob_match("**", "", true); // matches empty path
+}
+
 fn assert_glob_match(pattern: &str, path: &str, expected: bool) {
     let matches = match_pattern(pattern, path);
 
