@@ -2,27 +2,6 @@ pub fn match_pattern(pattern: &str, path: &str) -> bool {
     match_single_pattern(pattern, path)
 }
 
-pub fn match_patterns(patterns: &[&str], path: &str) -> bool {
-    let mut included = false;
-
-    for pattern in patterns {
-        if pattern.starts_with('!') {
-            // Negation pattern
-            let neg_pattern = &pattern[1..];
-            if match_single_pattern(neg_pattern, path) {
-                included = false;
-            }
-        } else {
-            // Inclusion pattern
-            if match_single_pattern(pattern, path) {
-                included = true;
-            }
-        }
-    }
-
-    included
-}
-
 fn match_single_pattern(pattern: &str, path: &str) -> bool {
     // Convert pattern to regex-like tokens for easier processing
     let tokens = tokenize_pattern(pattern);
