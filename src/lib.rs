@@ -1,10 +1,6 @@
 pub fn match_pattern(pattern: &str, path: &str) -> bool {
     let parsed_pattern = parse_pattern(pattern);
-    let path_segments = if path.is_empty() {
-        vec![]
-    } else {
-        path.split('/').collect()
-    };
+    let path_segments = if path.is_empty() { vec![] } else { path.split('/').collect() };
 
     match_segments(&parsed_pattern.segments, &path_segments, 0, 0)
 }
@@ -40,11 +36,8 @@ fn parse_pattern(pattern: &str) -> Pattern {
                 if question_pos > 0 {
                     let before_question = &part[..question_pos];
                     let optional_char = part.chars().nth(question_pos - 1).unwrap();
-                    let without_optional = format!(
-                        "{}{}",
-                        &before_question[..before_question.len() - 1],
-                        &part[question_pos + 1..]
-                    );
+                    let without_optional =
+                        format!("{}{}", &before_question[..before_question.len() - 1], &part[question_pos + 1..]);
                     segments.push(Segment::Optional(without_optional, optional_char));
                 } else {
                     // Fallback to star pattern
@@ -63,12 +56,7 @@ fn parse_pattern(pattern: &str) -> Pattern {
     Pattern { segments }
 }
 
-fn match_segments(
-    segments: &[Segment],
-    path_parts: &[&str],
-    seg_idx: usize,
-    path_idx: usize,
-) -> bool {
+fn match_segments(segments: &[Segment], path_parts: &[&str], seg_idx: usize, path_idx: usize) -> bool {
     // Base case: both exhausted
     if seg_idx >= segments.len() && path_idx >= path_parts.len() {
         return true;
@@ -160,9 +148,7 @@ fn matches_star_pattern(pattern: &str, segment: &str) -> bool {
         let prefix = parts[0];
         let suffix = parts[1];
 
-        segment.starts_with(prefix)
-            && segment.ends_with(suffix)
-            && segment.len() >= prefix.len() + suffix.len()
+        segment.starts_with(prefix) && segment.ends_with(suffix) && segment.len() >= prefix.len() + suffix.len()
     } else if parts.len() == 1 {
         // Just "*"
         true
