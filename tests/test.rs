@@ -4,18 +4,18 @@ use glob_workflow_paths::match_pattern;
 fn test_basic_wildcards() {
     assert_glob_match("*", "README.md", true);
     assert_glob_match("*", "server.rb", true);
-    assert_glob_match("*", "docs/file.txt", false);
+    assert_glob_match("*", "docs/file.txt", false); // * doesn't match slash (/) - only matches single path segment
 }
 
 #[test]
 fn test_question_mark_wildcard() {
     // Test *.jsx? pattern - matches zero or one 'x'
-    assert_glob_match("*.jsx?", "page.js", true); // matches - 'x' appears zero times
-    assert_glob_match("*.jsx?", "page.jsx", true); // matches - 'x' appears one time
-    assert_glob_match("*.jsx?", "page.jsxx", false); // doesn't match - 'x' appears more than once
-    assert_glob_match("*.jsx?", "page.ts", false); // doesn't match - doesn't end with js/jsx
+    assert_glob_match("*.jsx?", "page.js", true);
+    assert_glob_match("*.jsx?", "page.jsx", true);
     assert_glob_match("*.jsx?", "component.js", true);
     assert_glob_match("*.jsx?", "component.jsx", true);
+    assert_glob_match("*.jsx?", "page.jsxx", false); // doesn't match - 'x' appears more than once
+    assert_glob_match("*.jsx?", "page.ts", false); // doesn't match - doesn't end with js/jsx
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn test_double_star_wildcard() {
     assert_glob_match("**", "README.md", true);
     assert_glob_match("**", "docs/nested/deeply/file.txt", true);
     assert_glob_match("**", "single-file.js", true);
-    assert_glob_match("**", "", true); // matches empty path
+    assert_glob_match("**", "", true);
 }
 
 #[test]
