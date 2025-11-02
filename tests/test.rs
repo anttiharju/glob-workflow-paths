@@ -116,6 +116,21 @@ fn test_readme_anywhere_pattern() {
     assert_glob_match("**/README.md", "docs/readme/file.md", false); // not the exact filename
 }
 
+#[test]
+fn test_src_suffix_pattern() {
+    // Test **/*src/** pattern - matches any file in a folder with a src suffix anywhere in the repository
+    assert_glob_match("**/*src/**", "a/src/app.js", true);
+    assert_glob_match("**/*src/**", "my-src/code/js/app.js", true);
+    assert_glob_match("**/*src/**", "project/main-src/utils/helper.js", true);
+    assert_glob_match("**/*src/**", "app-src/components/Button.tsx", true);
+    assert_glob_match("**/*src/**", "nested/path/web-src/styles/main.css", true);
+    assert_glob_match("**/*src/**", "src/app.js", true);
+    assert_glob_match("**/*src/**", "source/app.js", false); // "source" doesn't end with "src"
+    assert_glob_match("**/*src/**", "src-backup/app.js", false); // "src-backup" doesn't end with "src"
+    assert_glob_match("**/*src/**", "app.js", false); // not in any *src directory
+    assert_glob_match("**/*src/**", "docs/src-old/file.txt", false); // "src-old" doesn't end with "src"
+}
+
 fn assert_glob_match(pattern: &str, path: &str, expected: bool) {
     let matches = match_pattern(pattern, path);
 
