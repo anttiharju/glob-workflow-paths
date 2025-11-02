@@ -178,6 +178,5 @@ fn test_negation_pattern() {
 
 fn assert_glob_match(patterns: &[&str], paths: &[&str], expected: bool) {
     let matches = match_pattern(patterns, paths);
-    let path = paths[0];
-    assert_eq!(matches, expected, "Patterns '{:?}' vs '{}' -> {} (expected {})", patterns, path, matches, expected);
+    assert_eq!(matches, expected, "Patterns '{:?}' vs '{:?}' -> {} (expected {})", patterns, paths, matches, expected);
 }
