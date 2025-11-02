@@ -1,4 +1,4 @@
-use glob_workflow_paths::match_pattern;
+use glob_workflow_paths::match_paths;
 
 // I am aware that the test cases are repetitive, but extracting patterns to a variable breaks single-line readability.
 
@@ -177,6 +177,6 @@ fn test_negation_pattern() {
 }
 
 fn assert_glob_match(patterns: &[&str], paths: &[&str], expected: bool) {
-    let matches = match_pattern(patterns, paths);
+    let matches = match_paths(patterns, paths);
     assert_eq!(matches, expected, "Patterns '{:?}' vs '{:?}' -> {} (expected {})", patterns, paths, matches, expected);
 }

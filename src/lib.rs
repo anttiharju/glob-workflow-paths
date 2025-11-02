@@ -1,4 +1,4 @@
-pub fn match_pattern(patterns: &[&str], paths: &[&str]) -> bool {
+pub fn match_paths(patterns: &[&str], paths: &[&str]) -> bool {
     if patterns.is_empty() || paths.is_empty() {
         return false;
     }
