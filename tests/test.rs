@@ -1,5 +1,7 @@
 use glob_workflow_paths::match_pattern;
 
+// I am aware that the test cases are repetitive, but extracting patterns to a variable breaks single-line readability.
+
 #[test]
 fn test_basic_wildcards() {
     assert_glob_match(&["*"], "README.md", true);
