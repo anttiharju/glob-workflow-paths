@@ -88,6 +88,20 @@ fn test_docs_markdown_pattern() {
     assert_glob_match("docs/**/*.md", "docs/", false); // directory, not file
 }
 
+#[test]
+fn test_nested_docs_pattern() {
+    // Test **/docs/** pattern - matches any files in a docs directory anywhere in the repository
+    assert_glob_match("**/docs/**", "docs/hello.md", true);
+    assert_glob_match("**/docs/**", "dir/docs/my-file.txt", true);
+    assert_glob_match("**/docs/**", "space/docs/plan/space.doc", true);
+    assert_glob_match("**/docs/**", "project/nested/docs/README.md", true);
+    assert_glob_match("**/docs/**", "docs/nested/deeply/file.txt", true);
+    assert_glob_match("**/docs/**", "some/path/docs/guide.md", true);
+    assert_glob_match("**/docs/**", "README.md", false); // not in any docs directory
+    assert_glob_match("**/docs/**", "documentation/file.txt", false); // not in docs directory
+    assert_glob_match("**/docs/**", "docs-backup/file.txt", false); // not exactly "docs"
+}
+
 fn assert_glob_match(pattern: &str, path: &str, expected: bool) {
     let matches = match_pattern(pattern, path);
 
