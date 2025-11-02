@@ -149,9 +149,5 @@ fn test_post_suffix_pattern() {
 fn assert_glob_match(pattern: &str, path: &str, expected: bool) {
     let matches = match_pattern(pattern, path);
 
-    assert_eq!(
-        matches, expected,
-        "Pattern '{}' vs '{}' -> {} (expected {})",
-        pattern, path, matches, expected
-    );
+    assert_eq!(matches, expected, "Pattern '{}' vs '{}' -> {} (expected {})", pattern, path, matches, expected);
 }
