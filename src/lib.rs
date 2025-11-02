@@ -1,25 +1,96 @@
 pub fn match_pattern(pattern: &str, path: &str) -> bool {
-    match_recursive(pattern.chars().collect(), path.chars().collect(), 0, 0)
+    match_single_pattern(pattern, path)
 }
 
-fn match_recursive(pattern: Vec<char>, path: Vec<char>, p_idx: usize, path_idx: usize) -> bool {
-    // If we've reached the end of both pattern and path, it's a match
-    if p_idx >= pattern.len() && path_idx >= path.len() {
+pub fn match_patterns(patterns: &[&str], path: &str) -> bool {
+    let mut included = false;
+
+    for pattern in patterns {
+        if pattern.starts_with('!') {
+            // Negation pattern
+            let neg_pattern = &pattern[1..];
+            if match_single_pattern(neg_pattern, path) {
+                included = false;
+            }
+        } else {
+            // Inclusion pattern
+            if match_single_pattern(pattern, path) {
+                included = true;
+            }
+        }
+    }
+
+    included
+}
+
+fn match_single_pattern(pattern: &str, path: &str) -> bool {
+    // Convert pattern to regex-like tokens for easier processing
+    let tokens = tokenize_pattern(pattern);
+    match_tokens(&tokens, path.chars().collect(), 0)
+}
+
+#[derive(Debug, Clone)]
+enum Token {
+    Literal(char),
+    Star,           // * - matches any chars except /
+    DoubleStar,     // ** - matches any chars including /
+    Optional(char), // x? - matches zero or one x
+}
+
+fn tokenize_pattern(pattern: &str) -> Vec<Token> {
+    let mut tokens = Vec::new();
+    let chars: Vec<char> = pattern.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        match chars[i] {
+            '*' => {
+                if i + 1 < chars.len() && chars[i + 1] == '*' {
+                    tokens.push(Token::DoubleStar);
+                    i += 2;
+                } else {
+                    tokens.push(Token::Star);
+                    i += 1;
+                }
+            }
+            '?' => {
+                if i > 0 {
+                    // Convert previous literal + ? into Optional
+                    if let Some(Token::Literal(c)) = tokens.pop() {
+                        tokens.push(Token::Optional(c));
+                    }
+                }
+                i += 1;
+            }
+            c => {
+                tokens.push(Token::Literal(c));
+                i += 1;
+            }
+        }
+    }
+
+    tokens
+}
+
+fn match_tokens(tokens: &[Token], path: Vec<char>, path_idx: usize) -> bool {
+    if tokens.is_empty() && path_idx >= path.len() {
         return true;
     }
 
-    // If pattern is exhausted but path isn't, no match
-    if p_idx >= pattern.len() {
+    if tokens.is_empty() {
         return false;
     }
 
-    let current_char = pattern[p_idx];
-
-    match current_char {
-        '*' => {
-            // * matches any sequence of characters except '/'
+    match &tokens[0] {
+        Token::Literal(c) => {
+            if path_idx >= path.len() || path[path_idx] != *c {
+                return false;
+            }
+            match_tokens(&tokens[1..], path, path_idx + 1)
+        }
+        Token::Star => {
             // Try matching zero characters
-            if match_recursive(pattern.clone(), path.clone(), p_idx + 1, path_idx) {
+            if match_tokens(&tokens[1..], path.clone(), path_idx) {
                 return true;
             }
 
@@ -27,52 +98,38 @@ fn match_recursive(pattern: Vec<char>, path: Vec<char>, p_idx: usize, path_idx: 
             let mut i = path_idx;
             while i < path.len() && path[i] != '/' {
                 i += 1;
-                if match_recursive(pattern.clone(), path.clone(), p_idx + 1, i) {
+                if match_tokens(&tokens[1..], path.clone(), i) {
                     return true;
                 }
             }
             false
         }
-        '?' => {
-            // ? matches zero or one of the preceding character
-            if p_idx == 0 {
-                return false; // ? can't be at the beginning
-            }
-
-            // Try matching zero occurrences of the preceding character
-            // This means we skip both the preceding char and the ? in the pattern
-            if match_recursive(pattern.clone(), path.clone(), p_idx + 1, path_idx) {
+        Token::DoubleStar => {
+            // Try matching zero characters
+            if match_tokens(&tokens[1..], path.clone(), path_idx) {
                 return true;
             }
 
-            // Try matching one occurrence of the preceding character
-            // The preceding character should already be matched, so we just need to continue
-            // after the ? without consuming any path characters
-            false
-        }
-        _ => {
-            // Check if the next character is '?' - if so, handle it specially
-            if p_idx + 1 < pattern.len() && pattern[p_idx + 1] == '?' {
-                // Current character might appear zero or one time
-
-                // Try zero occurrences - skip both current char and ?
-                if match_recursive(pattern.clone(), path.clone(), p_idx + 2, path_idx) {
+            // Try matching one or more characters (including '/')
+            for i in (path_idx + 1)..=path.len() {
+                if match_tokens(&tokens[1..], path.clone(), i) {
                     return true;
                 }
-
-                // Try one occurrence - match current char and skip ?
-                if path_idx < path.len() && path[path_idx] == current_char {
-                    return match_recursive(pattern.clone(), path.clone(), p_idx + 2, path_idx + 1);
-                }
-
-                false
-            } else {
-                // Regular character matching
-                if path_idx >= path.len() || path[path_idx] != current_char {
-                    return false;
-                }
-                match_recursive(pattern.clone(), path.clone(), p_idx + 1, path_idx + 1)
             }
+            false
+        }
+        Token::Optional(c) => {
+            // Try zero occurrences
+            if match_tokens(&tokens[1..], path.clone(), path_idx) {
+                return true;
+            }
+
+            // Try one occurrence
+            if path_idx < path.len() && path[path_idx] == *c {
+                return match_tokens(&tokens[1..], path, path_idx + 1);
+            }
+
+            false
         }
     }
 }
