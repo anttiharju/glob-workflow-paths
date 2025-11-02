@@ -176,6 +176,18 @@ fn test_negation_pattern() {
     assert_glob_match(&["*.md", "!README.md"], &["file.txt"], false); // wrong extension
 }
 
+#[test]
+fn test_sequential_negation_and_reinclude() {
+    // Test *.md with !README.md then README* - negation followed by re-inclusion
+    let patterns = &["*.md", "!README.md", "README*"];
+    assert_glob_match(patterns, &["hello.md"], true); // matches *.md, not negated
+    assert_glob_match(patterns, &["README.md"], true); // matches *.md, negated by !README.md, but re-included by README*
+    assert_glob_match(patterns, &["README.doc"], true); // matches README*
+    assert_glob_match(patterns, &["guide.md"], true); // matches *.md, not negated
+    assert_glob_match(patterns, &["file.txt"], false); // doesn't match any positive pattern
+    assert_glob_match(patterns, &["docs/README.md"], false); // not at root level
+}
+
 fn assert_glob_match(patterns: &[&str], paths: &[&str], expected: bool) {
     let matches = match_paths(patterns, paths);
     assert_eq!(matches, expected, "Patterns '{:?}' vs '{:?}' -> {} (expected {})", patterns, paths, matches, expected);
