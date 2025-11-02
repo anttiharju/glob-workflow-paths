@@ -51,6 +51,18 @@ fn test_double_star_js_extension_pattern() {
     assert_glob_match("**.js", "script.js.backup", false); // doesn't end with .js
 }
 
+#[test]
+fn test_docs_directory_pattern() {
+    // Test docs/* pattern - matches all files within the root of the docs directory only
+    assert_glob_match("docs/*", "docs/README.md", true);
+    assert_glob_match("docs/*", "docs/file.txt", true);
+    assert_glob_match("docs/*", "docs/guide.md", true);
+    assert_glob_match("docs/*", "docs/nested/file.txt", false); // nested files don't match
+    assert_glob_match("docs/*", "README.md", false); // not in docs directory
+    assert_glob_match("docs/*", "src/docs/file.txt", false); // docs not at root
+    assert_glob_match("docs/*", "docs", false); // directory itself, not files within
+}
+
 fn assert_glob_match(pattern: &str, path: &str, expected: bool) {
     let matches = match_pattern(pattern, path);
 
