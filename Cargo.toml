@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.84.1"
 
 [lib]
-name = "glob_workflow_paths"
+name = "pathglob"
 path = "src/lib.rs"
 
 [[bin]]
