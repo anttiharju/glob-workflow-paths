@@ -1,30 +1,27 @@
-pub fn match_paths(patterns: &[&str], paths: &[&str]) -> bool {
-    if patterns.is_empty() || paths.is_empty() {
+pub fn match_path(patterns: &[&str], path: &str) -> bool {
+    if patterns.is_empty() {
         return false;
     }
 
     // Pre-parse all patterns, expanding optionals into multiple variants
     let parsed_patterns: Vec<(Pattern, bool)> = patterns.iter().flat_map(|pattern| parse_pattern(pattern)).collect();
 
-    // Check if any path matches the sequential pattern logic
-    paths.iter().any(|path| {
-        let path_segments = if path.is_empty() { vec![] } else { path.split('/').collect() };
+    let path_segments = if path.is_empty() { vec![] } else { path.split('/').collect() };
 
-        // Process pre-parsed patterns sequentially - each pattern can override previous results
-        let mut matched = false;
+    // Process pre-parsed patterns sequentially - each pattern can override previous results
+    let mut matched = false;
 
-        for (parsed_pattern, is_negation) in &parsed_patterns {
-            if match_segments(&parsed_pattern.segments, &path_segments, 0, 0) {
-                if *is_negation {
-                    matched = false; // Negation pattern matched - exclude the path
-                } else {
-                    matched = true; // Positive pattern matched - include the path
-                }
+    for (parsed_pattern, is_negation) in &parsed_patterns {
+        if match_segments(&parsed_pattern.segments, &path_segments, 0, 0) {
+            if *is_negation {
+                matched = false; // Negation pattern matched - exclude the path
+            } else {
+                matched = true; // Positive pattern matched - include the path
             }
         }
+    }
 
-        matched
-    })
+    matched
 }
 
 #[derive(Debug, Clone)]
@@ -35,9 +32,9 @@ struct Pattern {
 #[derive(Debug, Clone)]
 enum Segment {
     Literal(String),              // "docs", "file.txt"
-    Star(String),                 // "*.js" -> Star("*.js")
+    Pattern(String),              // "*.js", "*.jsx+", "[CB]at", etc.
     DoubleStar,                   // "**"
-    DoubleStarWithSuffix(String), // "**.js" -> DoubleStarWithSuffix(".js")
+    DoubleStarWithSuffix(String), // "**.js"
 }
 
 fn parse_pattern(pattern: &str) -> Vec<(Pattern, bool)> {
@@ -56,8 +53,8 @@ fn parse_pattern(pattern: &str) -> Vec<(Pattern, bool)> {
                 } else if part.starts_with("**") {
                     let suffix = &part[2..];
                     segments.push(Segment::DoubleStarWithSuffix(suffix.to_string()));
-                } else if part.contains('*') {
-                    segments.push(Segment::Star(part.to_string()));
+                } else if part.contains('*') || part.contains('+') || part.contains('[') {
+                    segments.push(Segment::Pattern(part.to_string()));
                 } else {
                     segments.push(Segment::Literal(part.to_string()));
                 }
@@ -112,12 +109,12 @@ fn match_segments(segments: &[Segment], path_parts: &[&str], seg_idx: usize, pat
             match_segments(segments, path_parts, seg_idx + 1, path_idx + 1)
         }
 
-        Segment::Star(pattern) => {
+        Segment::Pattern(pattern) => {
             if path_idx >= path_parts.len() {
                 return false;
             }
 
-            if matches_star_pattern(pattern, path_parts[path_idx]) {
+            if glob_match(pattern, path_parts[path_idx]) {
                 match_segments(segments, path_parts, seg_idx + 1, path_idx + 1)
             } else {
                 false
@@ -126,12 +123,10 @@ fn match_segments(segments: &[Segment], path_parts: &[&str], seg_idx: usize, pat
 
         Segment::DoubleStar => {
             // Try consuming 0 or more path segments
-            // First try consuming 0 segments
             if match_segments(segments, path_parts, seg_idx + 1, path_idx) {
                 return true;
             }
 
-            // Then try consuming 1, 2, 3... segments
             for i in (path_idx + 1)..=path_parts.len() {
                 if match_segments(segments, path_parts, seg_idx + 1, i) {
                     return true;
@@ -141,7 +136,6 @@ fn match_segments(segments: &[Segment], path_parts: &[&str], seg_idx: usize, pat
         }
 
         Segment::DoubleStarWithSuffix(suffix) => {
-            // **.js matches any file ending with .js anywhere in the repository
             for i in path_idx..path_parts.len() {
                 if path_parts[i].ends_with(suffix) {
                     if match_segments(segments, path_parts, seg_idx + 1, i + 1) {
@@ -154,26 +148,160 @@ fn match_segments(segments: &[Segment], path_parts: &[&str], seg_idx: usize, pat
     }
 }
 
-fn matches_star_pattern(pattern: &str, segment: &str) -> bool {
-    if !pattern.contains('*') {
-        return pattern == segment;
+// Single function that handles all glob pattern matching within a path segment
+fn glob_match(pattern: &str, text: &str) -> bool {
+    glob_match_recursive(pattern, text, 0, 0)
+}
+
+fn glob_match_recursive(pattern: &str, text: &str, p_idx: usize, t_idx: usize) -> bool {
+    let p_chars: Vec<char> = pattern.chars().collect();
+    let t_chars: Vec<char> = text.chars().collect();
+
+    // Base cases
+    if p_idx >= p_chars.len() && t_idx >= t_chars.len() {
+        return true; // Both exhausted
+    }
+    if p_idx >= p_chars.len() {
+        return false; // Pattern exhausted but text remains
     }
 
-    // Handle patterns like "*.js", "*README*", etc.
-    let parts: Vec<&str> = pattern.split('*').collect();
+    match p_chars[p_idx] {
+        '*' => {
+            // Try matching 0 or more characters
+            for i in t_idx..=t_chars.len() {
+                if glob_match_recursive(pattern, text, p_idx + 1, i) {
+                    return true;
+                }
+            }
+            false
+        }
 
-    if parts.len() == 2 {
-        let prefix = parts[0];
-        let suffix = parts[1];
+        '+' => {
+            if p_idx == 0 {
+                return false; // Invalid pattern starting with +
+            }
 
-        segment.starts_with(prefix) && segment.ends_with(suffix) && segment.len() >= prefix.len() + suffix.len()
-    } else if parts.len() == 1 {
-        // Just "*"
-        true
-    } else {
-        // More complex patterns with multiple *
-        // For now, implement simple case
-        // TODO: Handle patterns like "*foo*bar*"
-        true
+            let char_to_repeat = p_chars[p_idx - 1];
+
+            // The plus means "one or more of the preceding character"
+            // But we need to backtrack because we already matched one instance
+            // We need to match at least one more occurrence at the current text position
+            let mut repeat_count = 0;
+            let mut curr_t_idx = t_idx;
+
+            // Count how many times the character repeats at current position
+            while curr_t_idx < t_chars.len() && t_chars[curr_t_idx] == char_to_repeat {
+                repeat_count += 1;
+                curr_t_idx += 1;
+            }
+
+            if repeat_count == 0 {
+                return false; // Need at least one occurrence
+            }
+
+            // Continue matching from where we left off
+            glob_match_recursive(pattern, text, p_idx + 1, curr_t_idx)
+        }
+
+        '[' => {
+            if t_idx >= t_chars.len() {
+                return false;
+            }
+
+            // Find the closing bracket
+            let mut bracket_end = p_idx + 1;
+            while bracket_end < p_chars.len() && p_chars[bracket_end] != ']' {
+                bracket_end += 1;
+            }
+
+            if bracket_end >= p_chars.len() {
+                return false; // No closing bracket
+            }
+
+            // Extract bracket content
+            let bracket_content: String = p_chars[(p_idx + 1)..bracket_end].iter().collect();
+
+            if matches_bracket_content(&bracket_content, t_chars[t_idx]) {
+                glob_match_recursive(pattern, text, bracket_end + 1, t_idx + 1)
+            } else {
+                false
+            }
+        }
+
+        '?' => {
+            if p_idx == 0 {
+                return false; // Invalid pattern starting with ?
+            }
+
+            // Optional character - try both with and without
+            // Without the optional character
+            if glob_match_recursive(pattern, text, p_idx + 1, t_idx) {
+                return true;
+            }
+
+            // With the optional character (if it matches the preceding character)
+            if t_idx < t_chars.len() {
+                let optional_char = p_chars[p_idx - 1];
+                if t_chars[t_idx] == optional_char {
+                    return glob_match_recursive(pattern, text, p_idx + 1, t_idx + 1);
+                }
+            }
+
+            false
+        }
+
+        c => {
+            // Literal character - but check if next character is '+'
+            if p_idx + 1 < p_chars.len() && p_chars[p_idx + 1] == '+' {
+                // This character is followed by +, so we need to match one or more
+                let mut repeat_count = 0;
+                let mut curr_t_idx = t_idx;
+
+                while curr_t_idx < t_chars.len() && t_chars[curr_t_idx] == c {
+                    repeat_count += 1;
+                    curr_t_idx += 1;
+                }
+
+                if repeat_count == 0 {
+                    return false; // Need at least one occurrence
+                }
+
+                // Skip both the character and the '+' in pattern
+                glob_match_recursive(pattern, text, p_idx + 2, curr_t_idx)
+            } else {
+                // Regular literal character
+                if t_idx >= t_chars.len() || t_chars[t_idx] != c {
+                    return false;
+                }
+                glob_match_recursive(pattern, text, p_idx + 1, t_idx + 1)
+            }
+        }
     }
+}
+
+fn matches_bracket_content(bracket_content: &str, ch: char) -> bool {
+    let chars: Vec<char> = bracket_content.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        // Check for range (e.g., "a-z", "0-9", "A-Z")
+        if i + 2 < chars.len() && chars[i + 1] == '-' {
+            let start_char = chars[i];
+            let end_char = chars[i + 2];
+
+            if ch >= start_char && ch <= end_char {
+                return true;
+            }
+
+            i += 3; // Skip the range
+        } else {
+            // Single character match
+            if chars[i] == ch {
+                return true;
+            }
+            i += 1;
+        }
+    }
+
+    false
 }
