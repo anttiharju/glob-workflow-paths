@@ -1,27 +1,36 @@
-pub fn match_path(patterns: &[&str], path: &str) -> bool {
-    if patterns.is_empty() {
+pub fn match_path(pattern: &str, paths: &[&str]) -> bool {
+    if paths.is_empty() {
         return false;
     }
 
-    // Pre-parse all patterns, expanding optionals into multiple variants
-    let parsed_patterns: Vec<(Pattern, bool)> = patterns.iter().flat_map(|pattern| parse_pattern(pattern)).collect();
+    // Parse the single pattern, expanding optionals into multiple variants
+    let parsed_patterns: Vec<(Pattern, bool)> = parse_pattern(pattern);
 
-    let path_segments = if path.is_empty() { vec![] } else { path.split('/').collect() };
+    // Check if any path matches the pattern
+    for path in paths {
+        let path_segments = if path.is_empty() { vec![] } else { path.split('/').collect() };
 
-    // Process pre-parsed patterns sequentially - each pattern can override previous results
-    let mut matched = false;
+        // Process pre-parsed pattern variants sequentially - each variant can override previous results
+        let mut matched = false;
 
-    for (parsed_pattern, is_negation) in &parsed_patterns {
-        if match_segments(&parsed_pattern.segments, &path_segments, 0, 0) {
-            if *is_negation {
-                matched = false; // Negation pattern matched - exclude the path
-            } else {
-                matched = true; // Positive pattern matched - include the path
+        for (parsed_pattern, is_negation) in &parsed_patterns {
+            if match_segments(&parsed_pattern.segments, &path_segments, 0, 0) {
+                if *is_negation {
+                    matched = false; // Negation pattern matched - exclude the path
+                } else {
+                    matched = true; // Positive pattern matched - include the path
+                }
             }
+        }
+
+        // If this path matched, return true immediately
+        if matched {
+            return true;
         }
     }
 
-    matched
+    // No paths matched the pattern
+    false
 }
 
 #[derive(Debug, Clone)]
